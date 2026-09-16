@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/mrmiffmiff/gator-blog-aggregator/internal/database"
 )
 
@@ -24,15 +27,50 @@ func scrapeFeeds(s *state) error {
 	if err != nil {
 		return fmt.Errorf("Error with fetching feed data: %w", err)
 	}
-	fmt.Printf("RSS Feed: %s\n", rssFeed.Channel.Title)
-	fmt.Println(rssFeed.Channel.Description)
-	if len(rssFeed.Channel.Item) < 1 {
-		fmt.Println("No items detected in RSS Feed")
-		return nil
-	}
-	fmt.Println("Items are as follows:")
 	for _, item := range rssFeed.Channel.Item {
-		fmt.Println(item.Title)
+		var pubTime sql.NullTime
+		t, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			t, err = time.Parse(time.RFC1123, item.PubDate)
+			if err != nil {
+				pubTime = sql.NullTime{
+					Time:  time.Time{},
+					Valid: false,
+				}
+			} else {
+				pubTime = sql.NullTime{
+					Time:  t,
+					Valid: true,
+				}
+			}
+		} else {
+			pubTime = sql.NullTime{
+				Time:  t,
+				Valid: true,
+			}
+		}
+		post, err := s.db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:        uuid.New(),
+			CreatedAt: time.Now(),
+			Url:       item.Link,
+			FeedID:    dbFeed.ID,
+			Title: sql.NullString{
+				String: item.Title,
+				Valid:  true,
+			},
+			Description: sql.NullString{
+				String: item.Description,
+				Valid:  true,
+			},
+			PublishedAt: pubTime,
+		})
+		if err != nil {
+			if pgErr, ok := err.(*pq.Error); ok && pgErr.Code == "23505" { // Duplicate insert
+				continue
+			}
+			return fmt.Errorf("Error creating post: %w", err)
+		}
+		fmt.Printf("Added post with URL %s published at %s to database\n", post.Url, post.PublishedAt.Time.String())
 	}
 	return nil
 }
@@ -51,3 +89,17 @@ func handlerAggregate(s *state, cmd command) error {
 		scrapeFeeds(s)
 	}
 }
+
+// func handlerBrowse(s *state, cmd command, user database.User) error {
+// 	if len(cmd.Args) > 1 {
+// 		return fmt.Errorf("usage: %s [post limit]", cmd.Name)
+// 	}
+// 	if len(cmd.Args) < 1 {
+// 		fmt.Println("No post limit entered, setting to 2.")
+// 	}
+// 	var limit int = 2
+// 	if len(cmd.Args) == 1 {
+// 		limit = int(cmd.Args[0])
+// 	}
+// 	return nil
+// }
