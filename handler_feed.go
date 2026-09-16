@@ -9,18 +9,13 @@ import (
 	"github.com/mrmiffmiff/gator-blog-aggregator/internal/database"
 )
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf("usage: %s <name> <url>", cmd.Name)
 	}
 	name := cmd.Args[0]
 	url := cmd.Args[1]
-	currentUserName := s.cfg.CurrentUserName
-	currentUser, err := s.db.GetUser(context.Background(), currentUserName)
-	if err != nil {
-		return fmt.Errorf("Couldn't retrieve current user: %w", err)
-	}
-	currentUserId := currentUser.ID
+	currentUserId := user.ID
 	feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
@@ -33,7 +28,7 @@ func handlerAddFeed(s *state, cmd command) error {
 		return fmt.Errorf("Problem creating new feed: %w", err)
 	}
 	fmt.Println("New feed record created successfully")
-	printFeed(feed, currentUser)
+	printFeed(feed, user)
 	fmt.Println()
 	fmt.Println("=====================================")
 	newFollow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
@@ -46,7 +41,7 @@ func handlerAddFeed(s *state, cmd command) error {
 	if err != nil {
 		return fmt.Errorf("Error creating new feed follow: %w", err)
 	}
-	fmt.Printf("%s now follows %s", newFollow.UserName, newFollow.FeedName)
+	fmt.Printf("%s now follows %s\n", newFollow.UserName, newFollow.FeedName)
 	return nil
 }
 

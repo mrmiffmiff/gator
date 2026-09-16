@@ -9,14 +9,9 @@ import (
 	"github.com/mrmiffmiff/gator-blog-aggregator/internal/database"
 )
 
-func handlerFollow(s *state, cmd command) error {
+func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: %s <url>", cmd.Name)
-	}
-	userName := s.cfg.CurrentUserName
-	user, err := s.db.GetUser(context.Background(), userName)
-	if err != nil {
-		return fmt.Errorf("Couldn't retrieve current user: %w", err)
 	}
 	userId := user.ID
 	url := cmd.Args[0]
@@ -35,18 +30,13 @@ func handlerFollow(s *state, cmd command) error {
 	if err != nil {
 		return fmt.Errorf("Error creating new feed follow: %w", err)
 	}
-	fmt.Printf("%s now follows %s", newFollow.UserName, newFollow.FeedName)
+	fmt.Printf("%s now follows %s\n", newFollow.UserName, newFollow.FeedName)
 	return nil
 }
 
-func handlerFollowing(s *state, cmd command) error {
+func handlerFollowing(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 0 {
 		return fmt.Errorf("usage: %s", cmd.Name)
-	}
-	userName := s.cfg.CurrentUserName
-	user, err := s.db.GetUser(context.Background(), userName)
-	if err != nil {
-		return fmt.Errorf("Couldn't retrieve current user: %w", err)
 	}
 	userId := user.ID
 	follows, err := s.db.GetFeedFollowsForUser(context.Background(), userId)
@@ -54,12 +44,32 @@ func handlerFollowing(s *state, cmd command) error {
 		return fmt.Errorf("Error retrieving follows for user: %w", err)
 	}
 	if len(follows) < 1 {
-		fmt.Printf("No feed follows for user %s.\n", userName)
+		fmt.Printf("No feed follows for user %s.\n", user.Name)
 		return nil
 	}
-	fmt.Printf("User %s follows the following feeds:\n", userName)
+	fmt.Printf("User %s follows the following feeds:\n", user.Name)
 	for _, follow := range follows {
 		fmt.Printf("  * %s\n", follow.FeedName)
 	}
+	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: %s <url>", cmd.Name)
+	}
+	url := cmd.Args[0]
+	feed, err := s.db.GetFeedByUrl(context.Background(), url)
+	if err != nil {
+		return fmt.Errorf("Couldn't retrieve feed: %w", err)
+	}
+	err = s.db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("Error unfollowing: %w", err)
+	}
+	fmt.Printf("%s unfollowed successfully for user %s!\n", feed.Name, user.Name)
 	return nil
 }
