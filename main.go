@@ -37,6 +37,8 @@ func main() {
 	programState.db = dbQueries
 	cmds.register("register", handlerRegister)
 
+	cmds.register("reset", handlerReset)
+
 	if len(os.Args) < 2 {
 		log.Fatal("Usage: cli <command> [args...]")
 	}
