@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,16 +91,51 @@ func handlerAggregate(s *state, cmd command) error {
 	}
 }
 
-// func handlerBrowse(s *state, cmd command, user database.User) error {
-// 	if len(cmd.Args) > 1 {
-// 		return fmt.Errorf("usage: %s [post limit]", cmd.Name)
-// 	}
-// 	if len(cmd.Args) < 1 {
-// 		fmt.Println("No post limit entered, setting to 2.")
-// 	}
-// 	var limit int = 2
-// 	if len(cmd.Args) == 1 {
-// 		limit = int(cmd.Args[0])
-// 	}
-// 	return nil
-// }
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	if len(cmd.Args) > 1 {
+		return fmt.Errorf("usage: %s [post_limit]", cmd.Name)
+	}
+	if len(cmd.Args) < 1 {
+		fmt.Println("No post limit entered, setting to 2.")
+	}
+	var limit string = "2"
+	if len(cmd.Args) == 1 {
+		limit = cmd.Args[0]
+	}
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil {
+		return fmt.Errorf("Trouble converting limit to int: %w", err)
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limitInt),
+	})
+	if err != nil {
+		return fmt.Errorf("Trouble retrieving posts for user: %w", err)
+	}
+	if len(posts) < 1 {
+		fmt.Println("No posts found")
+		return nil
+	}
+	for _, post := range posts {
+		var feedMessage string
+		feed, err := s.db.GetFeedById(context.Background(), post.FeedID)
+		if err != nil {
+			feedMessage = "From an unidentified feed:"
+		} else {
+			feedMessage = fmt.Sprintf("From Feed %s:", feed.Name)
+		}
+		fmt.Println(feedMessage)
+		fmt.Printf("Post with url %s\n", post.Url)
+		if post.Title.Valid {
+			fmt.Println(post.Title.String)
+		}
+		if post.Description.Valid {
+			fmt.Println(post.Description.String)
+		}
+		if post.PublishedAt.Valid {
+			fmt.Printf("Published at %v\n", post.PublishedAt.Time)
+		}
+	}
+	return nil
+}

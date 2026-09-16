@@ -29,3 +29,8 @@ SELECT *
 FROM feeds
 ORDER BY last_fetched_at NULLS FIRST
 LIMIT 1;
+
+-- name: GetFeedById :one
+SELECT *
+FROM feeds
+WHERE id = $1;
