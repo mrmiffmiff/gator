@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/mrmiffmiff/gator-blog-aggregator/internal/database"
+	"github.com/mrmiffmiff/gator/internal/database"
 )
 
 func scrapeFeeds(s *state) error {

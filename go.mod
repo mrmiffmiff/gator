@@ -1,4 +1,4 @@
-module github.com/mrmiffmiff/gator-blog-aggregator
+module github.com/mrmiffmiff/gator
 
 go 1.27.1
 
